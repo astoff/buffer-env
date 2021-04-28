@@ -95,7 +95,7 @@ content."
   "List of additional `exec-path' entries."
   :type '(string))
 
-(defun buffer-env-authorize (file)
+(defun buffer-env--authorize (file)
   "Check if FILE is safe to execute, or ask for permission.
 Files marked as safe to execute are permanently stored in
 `buffer-env-safe-files' via the Custom mechanism."
@@ -109,29 +109,46 @@ Files marked as safe to execute are permanently stored in
                                    (push (cons file hash)
                                          buffer-env-safe-files))))))
 
-;;;###autoload
-(defun buffer-env-update ()
-  "Update the environment variables buffer locally.
-This function searches for a file named `buffer-env-file' in the
-current directory and its parents, executes it in a shell, and
-then sets `process-environment' and `exec-path' buffer-locally to
-match the shell environment."
-  (interactive)
-  (when-let* ((dir (and (stringp buffer-env-file)
+(defun buffer-env--locate-script ()
+  (when-let* ((dir (and (stringp buffer-env-script-name)
                         (not (file-remote-p default-directory))
                         (locate-dominating-file default-directory
-                                                buffer-env-file)))
-              (file (expand-file-name buffer-env-file dir))
-              ((file-readable-p file))
-              ((buffer-env-authorize file))
-              (out (with-temp-buffer
-                     (setq default-directory dir)
-                     (call-process shell-file-name nil t nil
-                                   shell-command-switch
-                                   buffer-env-command
-                                   file)
-                     (buffer-substring (point-min) (point-max))))
-              (vars (split-string out (string 0) t)))
+                                                buffer-env-script-name))))
+    (expand-file-name buffer-env-script-name dir)))
+
+;;;###autoload
+(defun buffer-env-update (&optional file)
+  "Update the process environment buffer locally.
+This function executes FILE in a shell, collects the exported
+variables (see `buffer-env-command' for details), and then sets
+the buffer-local values of `process-environment' and `exec-path'
+accordingly.
+
+If FILE omitted, a file with base name `buffer-env-script-name'
+is looked up in the current directory and its parents; nothing
+happens if no such file is found.  This makes this function
+suitable for use in a normal hook.
+
+When called interactively, ask for a FILE."
+  (interactive (list (let ((file (buffer-env--locate-script)))
+                       (read-file-name "Environment script: "
+                                       file file t))))
+  (when-let* ((file (if file
+                        (expand-file-name file)
+                     (buffer-env--locate-script)))
+              ((buffer-env--authorize file))
+              (vars (with-temp-buffer
+                      (let* ((default-directory (file-name-directory file))
+                             (status (call-process shell-file-name nil t nil
+                                                   shell-command-switch
+                                                   buffer-env-command
+                                                   file)))
+                        (if (eq 0 status)
+                            (split-string (buffer-substring (point-min) (point-max))
+                                          (string 0) t)
+                          (prog1 nil
+                            (message "[buffer-env] Error in `%s', exit status %s"
+                                     file status)))))))
     (setq-local process-environment buffer-env-extra-variables)
     (dolist (var vars)
       (unless (seq-contains-p buffer-env-ignored-variables
@@ -140,7 +157,10 @@ match the shell environment."
         (setq process-environment (cons var process-environment))))
     (when-let* ((path (getenv "PATH")))
       (setq-local exec-path (append (split-string path path-separator)
-                                    buffer-env-extra-exec-path)))))
+                                    buffer-env-extra-exec-path)))
+    (message "[buffer-env] Environment of buffer `%s' set from `%s'"
+             (buffer-name)
+             file)))
 
 (provide 'buffer-env)
 ;;; buffer-env.el ends here
