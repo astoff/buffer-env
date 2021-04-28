@@ -57,32 +57,43 @@
 (require 'seq)
 (eval-when-compile (require 'subr-x))
 
-(defcustom buffer-env-file ".envrc"
-  "Base name of the script to produce environment variables.")
+(defgroup buffer-env nil
+  "Buffer-local process environments."
+  :group 'processes)
+
+(defcustom buffer-env-script-name ".envrc"
+  "Base name of the script to produce environment variables."
+  :type 'string)
 
 (defcustom buffer-env-command ">&2 . \"$0\" && env -0"
   "Command to produce environment variables.
 This string is executed as a command in a shell, in the directory
-of the envrc script, with its absolute file name as argument.
-The command should print a null-separated list of environment
-variables, and nothing else, to the standard output.")
+of the environment script, with its absolute file name as
+argument.  The command should print a null-separated list of
+environment variables, and nothing else, to the standard
+output."
+  :type 'string)
 
 (defcustom buffer-env-safe-files nil
   "List of scripts marked as safe to execute.
 Entries are conses consisting of the file name and a hash of its
-content.")
+content."
+  :type 'alist)
 
 (defcustom buffer-env-ignored-variables
   '("_=" "PS1=" "SHLVL=" "DISPLAY=" "PWD=")
-  "List of environment variables to ignore.")
+  "List of environment variables to ignore."
+  :type '(string))
 
 (defcustom buffer-env-extra-variables
   '("TERM=dumb")
-  "List of additional environment variables.")
+  "List of additional environment variables."
+  :type '(string))
 
 (defcustom buffer-env-extra-exec-path
   (list exec-directory)
-  "List of additional `exec-path' entries.")
+  "List of additional `exec-path' entries."
+  :type '(string))
 
 (defun buffer-env-authorize (file)
   "Check if FILE is safe to execute, or ask for permission.
