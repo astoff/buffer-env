@@ -35,7 +35,8 @@
 ;; direnv and it's not possible to use direnv-specific features in the
 ;; .envrc scripts.  On the plus side, it's possible to configure the
 ;; package to support other environment setup methods, such as .env
-;; files or Python virtualenvs.
+;; files or Python virtualenvs.  The package Readme includes some
+;; examples.
 
 ;; The usual way to activate this package is by including the
 ;; following in your init file:
@@ -161,6 +162,13 @@ When called interactively, ask for a FILE."
     (message "[buffer-env] Environment of buffer `%s' set from `%s'"
              (buffer-name)
              file)))
+
+;;;###autoload
+(defun buffer-env-reset ()
+  "Reset this buffer's process environment to the global values."
+  (interactive)
+  (kill-local-variable 'process-environment)
+  (kill-local-variable 'exec-path))
 
 (provide 'buffer-env)
 ;;; buffer-env.el ends here
