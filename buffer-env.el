@@ -1,8 +1,9 @@
-;; buffer-env.el --- Buffer-local process environments -*- lexical-binding: t; -*-
+;;; buffer-env.el --- Buffer-local process environments -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2021 Augusto Stoffel
 
 ;; Author: Augusto Stoffel <arstoffel@gmail.com>
+;; URL: https://github.com/astoff/buffer-env
 ;; Keywords: processes, tools
 ;; Package-Requires: ((emacs "27.1"))
 ;; Version: 0.1
@@ -99,8 +100,8 @@ Files marked as safe to execute are permanently stored in
                 (insert-file-contents-literally file)
                 (secure-hash 'sha256 (current-buffer)))))
     (or (member (cons file hash) buffer-env-safe-files)
-        (when (y-or-n-p (format "Mark current version of ‘%s’ as safe to execute? "
-                                file))
+        (when (y-or-n-p (format-message "Mark current version of `%s' as safe to execute? "
+                                        file))
           (customize-save-variable 'buffer-env-safe-files
                                    (push (cons file hash)
                                          buffer-env-safe-files))))))
@@ -118,8 +119,8 @@ Files marked as safe to execute are permanently stored in
   "Update the process environment buffer locally.
 This function executes FILE in a shell, collects the exported
 variables (see `buffer-env-command' for details), and then sets
-the buffer-local values of `process-environment' and `exec-path'
-accordingly.
+the buffer-local values of the variables `exec-path' and
+`process-environment' accordingly.
 
 If FILE omitted, a file with base name `buffer-env-script-name'
 is looked up in the current directory and its parents; nothing
