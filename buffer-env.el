@@ -111,6 +111,7 @@ Files marked as safe to execute are permanently stored in
                                          buffer-env-safe-files))))))
 
 (defun buffer-env--locate-script ()
+  "Locate a dominating file named `buffer-env-script-name'."
   (when-let* ((dir (and (stringp buffer-env-script-name)
                         (not (file-remote-p default-directory))
                         (locate-dominating-file default-directory
@@ -159,9 +160,10 @@ When called interactively, ask for a FILE."
     (when-let* ((path (getenv "PATH")))
       (setq-local exec-path (append (split-string path path-separator)
                                     buffer-env-extra-exec-path)))
-    (message "[buffer-env] Environment of buffer `%s' set from `%s'"
-             (buffer-name)
-             file)))
+    (unless (string-prefix-p " " (buffer-name (current-buffer)))
+      (message "[buffer-env] Environment of `%s' set from `%s'"
+               (current-buffer)
+               file))))
 
 ;;;###autoload
 (defun buffer-env-reset ()
