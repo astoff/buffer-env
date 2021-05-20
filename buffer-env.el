@@ -91,11 +91,6 @@ content."
   "List of additional environment variables."
   :type '(string))
 
-(defcustom buffer-env-extra-exec-path
-  (list exec-directory)
-  "List of additional `exec-path' entries."
-  :type '(string))
-
 (defun buffer-env--authorize (file)
   "Check if FILE is safe to execute, or ask for permission.
 Files marked as safe to execute are permanently stored in
@@ -104,7 +99,7 @@ Files marked as safe to execute are permanently stored in
                 (insert-file-contents-literally file)
                 (secure-hash 'sha256 (current-buffer)))))
     (or (member (cons file hash) buffer-env-safe-files)
-        (when (y-or-n-p (format "Mark ‘%s’ as safe to execute?"
+        (when (y-or-n-p (format "Mark current version of ‘%s’ as safe to execute? "
                                 file))
           (customize-save-variable 'buffer-env-safe-files
                                    (push (cons file hash)
@@ -147,19 +142,19 @@ When called interactively, ask for a FILE."
                                                    file)))
                         (if (eq 0 status)
                             (split-string (buffer-substring (point-min) (point-max))
-                                          (string 0) t)
+                                          "\0" t)
                           (prog1 nil
                             (message "[buffer-env] Error in `%s', exit status %s"
                                      file status)))))))
-    (setq-local process-environment buffer-env-extra-variables)
-    (dolist (var vars)
-      (unless (seq-contains-p buffer-env-ignored-variables
-                              var
-                              'string-prefix-p)
-        (setq process-environment (cons var process-environment))))
+    (setq-local process-environment
+                (nconc (seq-remove (lambda (var)
+                                     (seq-contains-p buffer-env-ignored-variables var
+                                                     'string-prefix-p))
+                                   vars)
+                       buffer-env-extra-variables))
     (when-let* ((path (getenv "PATH")))
-      (setq-local exec-path (append (split-string path path-separator)
-                                    buffer-env-extra-exec-path)))
+      (setq-local exec-path (nconc (split-string path path-separator)
+                                   (list exec-directory))))
     (unless (string-prefix-p " " (buffer-name (current-buffer)))
       (message "[buffer-env] Environment of `%s' set from `%s'"
                (current-buffer)
