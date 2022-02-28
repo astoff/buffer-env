@@ -79,12 +79,36 @@ content."
 (defcustom buffer-env-ignored-variables
   '("_=" "PS1=" "SHLVL=" "DISPLAY=" "PWD=")
   "List of environment variables to ignore."
-  :type '(string))
+  :type '(repeat string))
 
 (defcustom buffer-env-extra-variables
   '("TERM=dumb")
   "List of additional environment variables."
-  :type '(string))
+  :type '(repeat string))
+
+(defcustom buffer-env-verbose nil
+  "Whether to display a message every time `buffer-env-update' runs successfully."
+  :type 'boolean)
+
+(defcustom buffer-env-mode-line " Env"
+  "Mode line indicator for buffers affected by buffer-env."
+  :type '(choice string (const :tag "No indicator" nil)))
+
+(defvar-local buffer-env-active nil
+  "Non-nil if a buffer-local process environment has been set.
+In this case, this is the name of the script used to generate it.")
+
+(setf (alist-get 'buffer-env-active minor-mode-alist)
+      '((:propertize
+         buffer-env-mode-line
+         help-echo "\
+Process environment is buffer local\n\
+mouse-1: Inspect process environment\n\
+mouse-2: Reset to default process environment"
+         mouse-face mode-line-highlight
+         local-map (keymap (mode-line keymap
+                                      (mouse-1 . buffer-env-inspect)
+                                      (mouse-2 . buffer-env-reset))))))
 
 (defun buffer-env--authorize (file)
   "Check if FILE is safe to execute, or ask for permission.
@@ -150,17 +174,19 @@ When called interactively, ask for a FILE."
     (when-let* ((path (getenv "PATH")))
       (setq-local exec-path (nconc (split-string path path-separator)
                                    (list exec-directory))))
-    (unless (string-prefix-p " " (buffer-name (current-buffer)))
+    (when buffer-env-verbose
       (message "[buffer-env] Environment of `%s' set from `%s'"
-               (current-buffer)
-               file))))
+               (current-buffer) file))
+    (setq buffer-env-active file)))
 
 ;;;###autoload
 (defun buffer-env-reset ()
-  "Reset this buffer's process environment to the global values."
+  "Reset the process environment of this buffer to the default values."
   (interactive)
+  (kill-local-variable 'buffer-env-active)
   (kill-local-variable 'process-environment)
-  (kill-local-variable 'exec-path))
+  (kill-local-variable 'exec-path)
+  (force-mode-line-update))
 
 (defun buffer-env--sorted (vars)
   "Sort and remove duplicates in the list of environment VARS."
