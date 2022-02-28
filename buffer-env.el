@@ -1,12 +1,12 @@
 ;;; buffer-env.el --- Buffer-local process environments -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2021 Augusto Stoffel
+;; Copyright (C) 2022  Free Software Foundation, Inc.
 
 ;; Author: Augusto Stoffel <arstoffel@gmail.com>
 ;; URL: https://github.com/astoff/buffer-env
 ;; Keywords: processes, tools
 ;; Package-Requires: ((emacs "27.1"))
-;; Version: 0.1
+;; Version: 0.2
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by

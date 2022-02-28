@@ -1,5 +1,6 @@
 #+title: buffer-env --- Buffer-local process environments
 
+#+html: <a href="http://elpa.gnu.org/packages/buffer-env.html"><img alt="GNU ELPA" src="https://elpa.gnu.org/packages/buffer-env.svg"/></a>
 #+html: <a href="https://melpa.org/#/buffer-env"><img alt="MELPA" src="https://melpa.org/packages/buffer-env-badge.svg"/></a>
 
 With this package, you can teach Emacs to call the correct version of
@@ -135,3 +136,8 @@ There is a large number of Emacs packages interfacing with Python's
 virtualenv system.  They all seem to take the global approach and,
 therefore, the comparisons and caveats in the envrc README also apply,
 mutatis mutandis.
+
+** Contributing
+Discussions, suggestions and code contributions are welcome! Since
+this package is part of GNU ELPA, nontrivial contributions (above 15
+lines of code) require a copyright assignment to the FSF.
