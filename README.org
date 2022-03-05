@@ -39,7 +39,7 @@ call =buffer-env-update= interactively or add it only to specific
 major-mode hooks.
 
 ** Alternative settings
-This package works as follows.  First, a file named =buffer-env-file=
+This package works as follows.  First, a file named =buffer-env-script-name=
 is looked up in the current directory or one of its parents.  In case
 of success, =buffer-env-command= is executed in a shell, with the
 found file as argument.  This command should print a null-separated
@@ -59,7 +59,7 @@ predictable place, say in a =.venv= directory at the root of each
 project; in this case you can say
 
 #+begin_src emacs-lisp
-  (setq buffer-env-file ".venv/bin/activate")
+  (setq buffer-env-script-name ".venv/bin/activate")
 #+end_src
 
 or a variation thereof.  Note that it is also possible to provide an
@@ -71,7 +71,7 @@ To gather environment variables from =.env= files in the style of
 Docker, Node.js and others, use the following settings:
 
 #+begin_src emacs-lisp
-  (setq buffer-env-file ".env")
+  (setq buffer-env-script-name ".env")
   (setq buffer-env-command "set -a && >&2 . \"$0\" && env -0")
 #+end_src
 
