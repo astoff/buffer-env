@@ -63,7 +63,7 @@ project; in this case you can say
 #+end_src
 
 or a variation thereof.  Note that it is also possible to provide an
-absolute path for =buffer-env-file=, and it is possible to specify it
+absolute path for =buffer-env-script-name=, and it is possible to specify it
 as a buffer- or directory-local variable.
 
 *** .env files
