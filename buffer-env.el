@@ -151,14 +151,14 @@ When called interactively, ask for a FILE."
                                        file file t))))
   (when-let* ((file (if file
                         (expand-file-name file)
-                     (buffer-env--locate-script)))
+                      (buffer-env--locate-script)))
+              (command buffer-env-command)
               ((buffer-env--authorize file))
               (vars (with-temp-buffer
                       (let* ((default-directory (file-name-directory file))
                              (status (call-process shell-file-name nil t nil
                                                    shell-command-switch
-                                                   buffer-env-command
-                                                   file)))
+                                                   command file)))
                         (if (eq 0 status)
                             (split-string (buffer-substring (point-min) (point-max))
                                           "\0" t)
