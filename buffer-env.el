@@ -43,7 +43,7 @@
 ;;
 ;;     (add-hook 'hack-local-variables-hook 'buffer-env-update)
 ;;
-;; This way, any buffer potentially affected by directory-local
+;; In this way, any buffer potentially affected by directory-local
 ;; variables will also be affected by buffer-env.  It is nonetheless
 ;; possible to call `buffer-env-update' interactively or add it only
 ;; to specific major-mode hooks.
@@ -58,22 +58,36 @@
   :group 'processes)
 
 (defcustom buffer-env-script-name ".envrc"
-  "Base name of the script to produce environment variables."
+  "File name of the script to produce environment variables."
   :type 'string)
 
 (defcustom buffer-env-command ">&2 . \"$0\" && env -0"
   "Command to produce environment variables.
-This string is executed as a command in a shell, in the directory
-of the environment script, with its absolute file name as
-argument.  The command should print a null-separated list of
-environment variables, and nothing else, to the standard
-output."
+This variable is obsolete.  Use `buffer-env-commands' instead."
   :type 'string)
+(make-obsolete-variable 'buffer-env-command 'buffer-env-commands "0.3" 'set)
+
+(defcustom buffer-env-commands
+  '((".env" . "set -a && >&2 . \"$0\" && env -0")
+    ("guix.scm" . ">&2 guix shell -D -f \"$0\" -- env -0")
+    ("*" . ">&2 . \"$0\" && env -0"))
+  "Alist of commands used to produce environment variables.
+For each entry, the car is glob pattern and the cdr is a shell
+command.  The command specifies how to execute a script and
+collect the environment variables it defines.
+
+Specifically, the command corresponding to the script file name
+is executed in a shell, in the directory of the script, with its
+absolute file name as argument.  The command should print a
+null-separated list of environment variables, and nothing else,
+to standard output."
+  :type '(alist :key-type (string :tag "Glob pattern")
+                :value-type (string :tag "Shell command")))
 
 (defcustom buffer-env-safe-files nil
   "List of scripts marked as safe to execute.
-Entries are conses consisting of the file name and a hash of its
-content."
+Entries are cons cells consisting of the file name and a hash of
+its content."
   :type 'alist)
 
 (defcustom buffer-env-ignored-variables
@@ -135,10 +149,9 @@ Files marked as safe to execute are permanently stored in
 ;;;###autoload
 (defun buffer-env-update (&optional file)
   "Update the process environment buffer locally.
-This function executes FILE in a shell, collects the exported
-variables (see `buffer-env-command' for details), and then sets
-the buffer-local values of the variables `exec-path' and
-`process-environment' accordingly.
+FILE is executed in the way prescribed by `buffer-env-commands'
+and the buffer-local values of `process-environment' and
+`exec-path' are set accordingly.
 
 If FILE omitted, a file with base name `buffer-env-script-name'
 is looked up in the current directory and its parents; nothing
@@ -151,29 +164,37 @@ When called interactively, ask for a FILE."
            (read-file-name (format-prompt "Environment script"
                                           (when file (file-relative-name file)))
                            nil file t))))
-  (when-let* ((file (if file
-                        (expand-file-name file)
-                      (buffer-env--locate-script)))
-              (command buffer-env-command)
-              ((buffer-env--authorize file))
-              (vars (with-temp-buffer
-                      (let* ((default-directory (file-name-directory file))
-                             (status (call-process shell-file-name nil t nil
-                                                   shell-command-switch
-                                                   command file)))
-                        (if (eq 0 status)
-                            (split-string (buffer-substring (point-min) (point-max))
-                                          "\0" t)
-                          (prog1 nil
-                            (message "[buffer-env] Error in `%s', exit status %s"
-                                     file status)))))))
+  (when-let ((file (if file
+                       (expand-file-name file)
+                     (buffer-env--locate-script)))
+             ((buffer-env--authorize file))
+             (command (or buffer-env-command
+                          (seq-some (pcase-lambda (`(,patt . ,command))
+                                      (when (string-match-p (wildcard-to-regexp patt)
+                                                            (file-name-nondirectory file))
+                                        command))
+                                    buffer-env-commands)))
+             (vars (with-temp-buffer
+                     (let* ((default-directory (file-name-directory file))
+                            (message-log-max nil)
+                            (msg (format-message "[buffer-env] Running `%s'..." file)) ;; use progress meter?
+                            (status (with-temp-message msg
+                                      (call-process shell-file-name nil t nil
+                                                    shell-command-switch
+                                                    command file))))
+                       (if (= status 0)
+                           (split-string (buffer-substring (point-min) (point-max))
+                                         "\0" t)
+                         (prog1 nil
+                           (message "[buffer-env] Error in `%s', exit status %s"
+                                    file status)))))))
     (setq-local process-environment
                 (nconc (seq-remove (lambda (var)
-                                     (seq-contains-p buffer-env-ignored-variables var
-                                                     'string-prefix-p))
+                                     (seq-contains-p buffer-env-ignored-variables
+                                                     var 'string-prefix-p))
                                    vars)
                        buffer-env-extra-variables))
-    (when-let* ((path (getenv "PATH")))
+    (when-let ((path (getenv "PATH")))
       (setq-local exec-path (nconc (split-string path path-separator)
                                    (list exec-directory))))
     (when buffer-env-verbose
