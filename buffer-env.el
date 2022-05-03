@@ -182,20 +182,33 @@ When called interactively, ask for a FILE."
                                                         (file-name-nondirectory file))
                                     command))
                                 buffer-env-commands))
+             (errbuf (with-current-buffer (get-buffer-create " *buffer-env*")
+                       (erase-buffer)
+                       (current-buffer)))
              (vars (with-temp-buffer
                      (let* ((default-directory (file-name-directory file))
                             (message-log-max nil)
-                            (msg (format-message "[buffer-env] Running `%s'..." file)) ;; use progress meter?
-                            (status (with-temp-message msg
-                                      (call-process shell-file-name nil t nil
-                                                    shell-command-switch
-                                                    command file))))
-                       (if (= status 0)
+                            (proc (make-process
+                                   :name " *buffer-env*"
+                                   :command (list shell-file-name
+                                                  shell-command-switch
+                                                  command file)
+                                   :buffer (current-buffer)
+                                   :stderr errbuf)))
+                       (sit-for 0)
+                       (when (process-live-p proc)
+                         (let* ((msg (format-message "[buffer-env] Running `%s'..." file))
+                                (reporter (make-progress-reporter msg)))
+                           (while (accept-process-output proc)
+                             (progress-reporter-update reporter))
+                           (progress-reporter-done reporter)))
+                       (if (= (process-exit-status proc) 0)
                            (split-string (buffer-substring (point-min) (point-max))
                                          "\0" t)
-                         (prog1 nil
-                           (message "[buffer-env] Error in `%s', exit status %s"
-                                    file status)))))))
+                         (message "[buffer-env] Error in `%s', exit status %s.\
+ See \" *buffer-env*\" for details."
+                                  file (process-exit-status proc))
+                         nil)))))
     (setq-local process-environment
                 (nconc (seq-remove (lambda (var)
                                      (seq-contains-p buffer-env-ignored-variables
