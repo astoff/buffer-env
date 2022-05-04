@@ -61,12 +61,6 @@
   "File name of the script to produce environment variables."
   :type 'string)
 
-(defcustom buffer-env-command ">&2 . \"$0\" && env -0"
-  "Command to produce environment variables.
-This variable is obsolete.  Use `buffer-env-commands' instead."
-  :type 'string)
-(make-obsolete-variable 'buffer-env-command 'buffer-env-commands "0.3" 'set)
-
 (defcustom buffer-env-commands
   '((".env" . "set -a && >&2 . \"$0\" && env -0")
     ("guix.scm" . ">&2 guix shell -D -f \"$0\" -- env -0")
@@ -168,12 +162,11 @@ When called interactively, ask for a FILE."
                        (expand-file-name file)
                      (buffer-env--locate-script)))
              ((buffer-env--authorize file))
-             (command (or buffer-env-command
-                          (seq-some (pcase-lambda (`(,patt . ,command))
-                                      (when (string-match-p (wildcard-to-regexp patt)
-                                                            (file-name-nondirectory file))
-                                        command))
-                                    buffer-env-commands)))
+             (command (seq-some (pcase-lambda (`(,patt . ,command))
+                                  (when (string-match-p (wildcard-to-regexp patt)
+                                                        (file-name-nondirectory file))
+                                    command))
+                                buffer-env-commands))
              (vars (with-temp-buffer
                      (let* ((default-directory (file-name-directory file))
                             (message-log-max nil)
