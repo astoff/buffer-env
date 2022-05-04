@@ -243,3 +243,8 @@ When called interactively, ask for a FILE."
 
 (provide 'buffer-env)
 ;;; buffer-env.el ends here
+
+;; Local Variables:
+;; indent-tabs-mode: nil
+;; show-trailing-whitespace: t
+;; End:
