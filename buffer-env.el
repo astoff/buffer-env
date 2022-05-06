@@ -103,13 +103,21 @@ its content."
   "Mode line indicator for buffers affected by buffer-env."
   :type '(choice string (const :tag "No indicator" nil)))
 
+(defcustom buffer-env-display-script-name nil
+  "Display the script name in the mode line?"
+  :type 'boolean)
+
 (defvar-local buffer-env-active nil
   "Non-nil if a buffer-local process environment has been set.
 In this case, this is the name of the script used to generate it.")
 
 (setf (alist-get 'buffer-env-active minor-mode-alist)
       '((:propertize
-         buffer-env-mode-line
+         (:eval (if buffer-env-display-script-name
+                    (format "%s[%s]"
+                            buffer-env-mode-line
+                            (file-name-nondirectory buffer-env-active))
+                  buffer-env-mode-line))
          help-echo "\
 Process environment is buffer local\n\
 mouse-1: Describe process environment\n\
