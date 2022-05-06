@@ -125,6 +125,11 @@ mouse-2: Reset to default process environment"
                                       (mouse-1 . buffer-env-describe)
                                       (mouse-2 . buffer-env-reset))))))
 
+(defvar buffer-env-cache-alist nil
+  "List of cache entries, to accelerate `buffer-env-update'.
+Each entry has the form (FILENAME TIMESTAMP PROCESS-ENVIRONMENT
+EXEC-PATH).")
+
 (defun buffer-env--authorize (file)
   "Check if FILE is safe to execute, or ask for permission.
 Files marked as safe to execute are permanently stored in
@@ -173,54 +178,66 @@ When called interactively, ask for a FILE."
            (read-file-name (format-prompt "Environment script"
                                           (when file (file-relative-name file)))
                            nil file t))))
-  (when-let ((file (if file
-                       (expand-file-name file)
-                     (buffer-env--locate-script)))
-             ((buffer-env--authorize file))
-             (command (seq-some (pcase-lambda (`(,patt . ,command))
-                                  (when (string-match-p (wildcard-to-regexp patt)
-                                                        (file-name-nondirectory file))
-                                    command))
-                                buffer-env-commands))
-             (errbuf (with-current-buffer (get-buffer-create " *buffer-env*")
-                       (erase-buffer)
-                       (current-buffer)))
-             (vars (with-temp-buffer
-                     (let* ((default-directory (file-name-directory file))
-                            (message-log-max nil)
-                            (proc (make-process
-                                   :name " *buffer-env*"
-                                   :command (list shell-file-name
-                                                  shell-command-switch
-                                                  command file)
-                                   :buffer (current-buffer)
-                                   :stderr errbuf)))
-                       (sit-for 0)
-                       (when (process-live-p proc)
-                         (let* ((msg (format-message "[buffer-env] Running `%s'..." file))
-                                (reporter (make-progress-reporter msg)))
-                           (while (accept-process-output proc)
-                             (progress-reporter-update reporter))
-                           (progress-reporter-done reporter)))
-                       (if (= (process-exit-status proc) 0)
-                           (split-string (buffer-substring (point-min) (point-max))
-                                         "\0" t)
-                         (message "[buffer-env] Error in `%s', exit status %s.\
+  (when-let* ((file (if file
+                        (expand-file-name file)
+                      (buffer-env--locate-script)))
+              ((buffer-env--authorize file))
+              (attr (file-attributes file))
+              (modtime (file-attribute-modification-time attr)))
+    (if-let* ((cache (assoc file buffer-env-cache-alist #'file-equal-p))
+              ((not (time-less-p (nth 1 cache) modtime))))
+        (progn
+          (setq-local process-environment (nth 2 cache)
+                      exec-path (nth 3 cache))
+          (when buffer-env-verbose
+            (message "[buffer-env] Cached environment of `%s' set from `%s'"
+                     (current-buffer) file)))
+      (when-let ((command (seq-some (pcase-lambda (`(,patt . ,command))
+                                      (when (string-match-p (wildcard-to-regexp patt)
+                                                            (file-name-nondirectory file))
+                                        command))
+                                    buffer-env-commands))
+                 (errbuf (with-current-buffer (get-buffer-create " *buffer-env*")
+                           (erase-buffer)
+                           (current-buffer)))
+                 (vars (with-temp-buffer
+                         (let* ((default-directory (file-name-directory file))
+                                (message-log-max nil)
+                                (proc (make-process
+                                       :name " *buffer-env*"
+                                       :command (list shell-file-name
+                                                      shell-command-switch
+                                                      command file)
+                                       :buffer (current-buffer)
+                                       :stderr errbuf)))
+                           (sit-for 0)
+                           (when (process-live-p proc)
+                             (let* ((msg (format-message "[buffer-env] Running `%s'..." file))
+                                    (reporter (make-progress-reporter msg)))
+                               (while (accept-process-output proc)
+                                 (progress-reporter-update reporter))
+                               (progress-reporter-done reporter)))
+                           (if (= (process-exit-status proc) 0)
+                               (split-string (buffer-substring (point-min) (point-max))
+                                             "\0" t)
+                             (message "[buffer-env] Error in `%s', exit status %s.\
  See \" *buffer-env*\" for details."
-                                  file (process-exit-status proc))
-                         nil)))))
-    (setq-local process-environment
-                (nconc (seq-remove (lambda (var)
-                                     (seq-contains-p buffer-env-ignored-variables
-                                                     var 'string-prefix-p))
-                                   vars)
-                       buffer-env-extra-variables))
-    (when-let ((path (getenv "PATH")))
-      (setq-local exec-path (nconc (split-string path path-separator)
-                                   (list exec-directory))))
-    (when buffer-env-verbose
-      (message "[buffer-env] Environment of `%s' set from `%s'"
-               (current-buffer) file))
+                                      file (process-exit-status proc))
+                             nil)))))
+        (setq-local process-environment
+                    (nconc (seq-remove (lambda (var)
+                                         (seq-contains-p buffer-env-ignored-variables
+                                                         var 'string-prefix-p))
+                                       vars)
+                           buffer-env-extra-variables))
+        (when-let ((path (getenv "PATH")))
+          (setq-local exec-path (nconc (split-string path path-separator)
+                                       (list exec-directory))))
+        (push (list file modtime process-environment exec-path)
+              buffer-env-cache-alist)
+        (when buffer-env-verbose
+          (message "[buffer-env] Environment of `%s' set from `%s'"
+                   (current-buffer) file))))
     (setq buffer-env-active file)))
 
 ;;;###autoload
