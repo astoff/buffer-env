@@ -101,7 +101,13 @@ its content."
 
 (defcustom buffer-env-mode-line " Env"
   "Mode line indicator for buffers affected by buffer-env."
-  :type '(choice string (const :tag "No indicator" nil)))
+  :risky t
+  :type '(choice (const :tag "Default" " Env")
+                 (const :tag "With script name"
+                        (:eval (format " Env[%s]" (file-name-nondirectory
+                                                   buffer-env-active))))
+                 (const :tag "No indicator" nil)
+                 sexp))
 
 (defvar-local buffer-env-active nil
   "Non-nil if a buffer-local process environment has been set.
