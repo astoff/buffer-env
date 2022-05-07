@@ -212,6 +212,7 @@ When called interactively, ask for a FILE."
                                        :command (list shell-file-name
                                                       shell-command-switch
                                                       command file)
+                                       :sentinel #'ignore
                                        :buffer (current-buffer)
                                        :stderr errbuf)))
                            (sit-for 0)
