@@ -141,19 +141,19 @@ Files marked as safe to execute are permanently stored in
 
 (defun buffer-env--locate-script ()
   "Locate a dominating file named `buffer-env-script-name'."
-  (unless (file-remote-p default-directory)
-    (cond
-     ((listp buffer-env-script-name)
-      (seq-some
-       (lambda (script-name)
-	 (and-let* ((dir (locate-dominating-file default-directory
-						script-name)))
-	   (expand-file-name script-name dir)))
-       buffer-env-script-name))
-     ((stringp buffer-env-script-name)
-      (when-let* ((dir (locate-dominating-file default-directory
-					       buffer-env-script-name)))
-	(expand-file-name buffer-env-script-name dir))))))
+  (cond
+   ((file-remote-p default-directory) nil)
+   ((listp buffer-env-script-name)
+    (seq-some
+     (lambda (script-name)
+       (and-let* ((dir (locate-dominating-file default-directory
+					       script-name)))
+	 (expand-file-name script-name dir)))
+     buffer-env-script-name))
+   ((stringp buffer-env-script-name)
+    (when-let* ((dir (locate-dominating-file default-directory
+					     buffer-env-script-name)))
+      (expand-file-name buffer-env-script-name dir)))))
 
 ;;;###autoload
 (defun buffer-env-update (&optional file)
