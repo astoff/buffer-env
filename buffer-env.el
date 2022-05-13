@@ -57,9 +57,8 @@
   "Buffer-local process environments."
   :group 'processes)
 
-(defcustom buffer-env-script-name
-  '(".envrc" "manifest.scm" "guix.scm")
-  "File name or list of the scripts to produce environment variables."
+(defcustom buffer-env-script-name ".envrc"
+  "File name of the scripts to produce environment variables, or a list of such."
   :type '(choice (repeat string) string))
 
 (defcustom buffer-env-commands
