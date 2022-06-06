@@ -125,10 +125,10 @@ mouse-2: Reset to default process environment"
                                       (mouse-1 . buffer-env-describe)
                                       (mouse-2 . buffer-env-reset))))))
 
-(defvar buffer-env--cache nil
-  "List of cache entries, to accelerate `buffer-env-update'.
-Each entry has the form (FILENAME TIMESTAMP PROCESS-ENVIRONMENT
-EXEC-PATH).")
+(defvar buffer-env--cache (make-hash-table :test #'equal)
+  "Hash table of cached entries, to accelerate `buffer-env-update'.
+Keys are file names, values are lists of form
+(TIMESTAMP PROCESS-ENVIRONMENT EXEC-PATH).")
 
 (defun buffer-env--authorize (file)
   "Check if FILE is safe to execute, or ask for permission.
@@ -183,14 +183,14 @@ When called interactively, ask for a FILE."
                      (buffer-env--locate-script)))
              ((buffer-env--authorize file))
              (modtime (file-attribute-modification-time (file-attributes file))))
-    (if-let ((cache (assoc file buffer-env--cache #'file-equal-p))
-	     ((time-equal-p (nth 1 cache) modtime)))
+    (if-let ((cache (gethash file buffer-env--cache))
+	     ((time-equal-p (nth 0 cache) modtime)))
         (progn
           (when buffer-env-verbose
             (message "[buffer-env] Environment of `%s' set from `%s' using cache"
                      (current-buffer) file))
-          (setq-local process-environment (nth 2 cache)
-                      exec-path (nth 3 cache)
+          (setq-local process-environment (nth 1 cache)
+                      exec-path (nth 2 cache)
                       buffer-env-active file))
       (when-let ((command (seq-some (pcase-lambda (`(,patt . ,command))
                                       (when (string-match-p (wildcard-to-regexp patt)
@@ -236,8 +236,7 @@ Script finished with exit status %s.  See buffer `%s' for details."
         (when-let ((path (getenv "PATH")))
           (setq-local exec-path (nconc (split-string path path-separator)
                                        (list exec-directory))))
-        (push (list file modtime process-environment exec-path)
-              buffer-env--cache)
+        (puthash file (list modtime process-environment exec-path) buffer-env--cache)
         (when buffer-env-verbose
           (message "[buffer-env] Environment of `%s' set from `%s'"
                    (current-buffer) file))
