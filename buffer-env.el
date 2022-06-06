@@ -221,10 +221,11 @@ When called interactively, ask for a FILE."
                                (progress-reporter-done reporter)))
                            (if (= (process-exit-status proc) 0)
                                (split-string (buffer-substring (point-min) (point-max)) "\0" t)
-                             (message "[buffer-env] Error in `%s', exit status %s.\
- See \" *buffer-env*\" for details."
-                                      file (process-exit-status proc))
                              (buffer-env-reset)
+                             (lwarn 'buffer-env :warning "\
+Error running script `%s'.
+Script finished with exit status %s.  See buffer `%s' for details."
+                                    file (process-exit-status proc) errbuf)
                              nil)))))
         (setq-local process-environment
                     (nconc (seq-remove (lambda (var)
