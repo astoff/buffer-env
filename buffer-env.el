@@ -175,8 +175,8 @@ suitable for use in a normal hook.
 When called interactively, ask for a FILE."
   (interactive
    (list (let ((file (buffer-env--locate-script)))
-           (read-file-name (format-prompt "Environment script"
-                                          (when file (file-relative-name file)))
+           (read-file-name (format "Environment script (default %s): "
+                                   (when file (file-relative-name file)))
                            nil file t))))
   (when-let ((file (if file
                        (expand-file-name file)
