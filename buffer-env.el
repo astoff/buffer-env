@@ -5,7 +5,7 @@
 ;; Author: Augusto Stoffel <arstoffel@gmail.com>
 ;; URL: https://github.com/astoff/buffer-env
 ;; Keywords: processes, tools
-;; Package-Requires: ((emacs "27.1"))
+;; Package-Requires: ((emacs "27.1") (compat "28.1"))
 ;; Version: 0.3
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -50,6 +50,7 @@
 
 ;;; Code:
 
+(require 'compat)
 (require 'seq)
 (eval-when-compile (require 'subr-x))
 
@@ -175,8 +176,8 @@ suitable for use in a normal hook.
 When called interactively, ask for a FILE."
   (interactive
    (list (let ((file (buffer-env--locate-script)))
-           (read-file-name (format "Environment script (default %s): "
-                                   (when file (file-relative-name file)))
+           (read-file-name (format-prompt "Environment script"
+                                          (when file (file-relative-name file)))
                            nil file t))))
   (when-let ((file (if file
                        (expand-file-name file)
