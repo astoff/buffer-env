@@ -6,7 +6,7 @@
 ;; URL: https://github.com/astoff/buffer-env
 ;; Keywords: processes, tools
 ;; Package-Requires: ((emacs "27.1") (compat "28.1"))
-;; Version: 0.3
+;; Version: 0.4
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
