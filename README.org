@@ -63,15 +63,22 @@ certain script names are treated specially.  These are:
   lists of =VARIABLE=value= pairs.  They are still executed as shell
   scripts (which dictates when and how quotes are to be used, for
   instance), but no =export= statements are needed.
-- =guix.scm=: The development environment of the Guix package is
-  loaded and exported to Emacs.  Make sure you have entered =guix
-  shell= at least once before to install the dependencies, otherwise
-  you may block Emacs for a long time.
+- =guix.scm= and =manifest.scm=: The development environment of the
+  Guix package is loaded and exported to Emacs.  Make sure you have
+  entered =guix shell= at least once before to install the
+  dependencies, otherwise you may block Emacs for a long time.
 
 For instructions on how to extend this list, see the documentation of
 the variable =buffer-env-commands=.
 
 ** Integration with other environment management mechanisms
+
+*** pyproject.toml
+
+If you are using a fully featured Python project manager such as
+[[https://python-poetry.org/][Poetry]], [[https://hatch.pypa.io/][Hatch]] or [[https://pdm.fming.dev][PDM]], buffer-env can be configured to infer the
+project environment directly from the =pyproject.toml= file.  See [[https://github.com/astoff/buffer-env/issues/13][this
+note]] for instructions.
 
 *** Python virtualenvs
 In most cases, the easiest way to interface with Python virtualenvs is
@@ -90,11 +97,13 @@ root of each project, you can say
 
 #+begin_src emacs-lisp
   (setq buffer-env-script-name ".venv/bin/activate")
+  ;; alternatively, try to find a .envrc file first
+  (setq buffer-env-script-name '(".envrc" ".venv/bin/activate"))
 #+end_src
 
-or a variation thereof.  Note that it is also possible to provide an
-absolute path for =buffer-env-script-name=, and it is possible to specify it
-as a buffer- or directory-local variable.
+Note that it is also possible to provide an absolute path for
+=buffer-env-script-name=, and it is possible to specify it as a
+buffer- or directory-local variable.
 
 *** .env files
 To load the environment defined by a =.env= file, you can select it

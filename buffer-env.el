@@ -68,7 +68,7 @@
     ("guix.scm" . "guix shell -D -f \"$0\" -- env -0")
     ("*" . ">&2 . \"$0\" && env -0"))
   "Alist of commands used to produce environment variables.
-For each entry, the car is glob pattern and the cdr is a shell
+For each entry, the car is a glob pattern and the cdr is a shell
 command.  The command specifies how to execute a script and
 collect the environment variables it defines.
 
