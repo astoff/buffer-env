@@ -66,6 +66,8 @@
   '((".env" . "set -a && >&2 . \"$0\" && env -0")
     ("manifest.scm" . "guix shell -m \"$0\" -- env -0")
     ("guix.scm" . "guix shell -D -f \"$0\" -- env -0")
+    ("flake.nix" . "nix develop -c env -0")
+    ("shell.nix" . "nix-shell \"$0\" --run \"env -0\"")
     ("*" . ">&2 . \"$0\" && env -0"))
   "Alist of commands used to produce environment variables.
 For each entry, the car is a glob pattern and the cdr is a shell
