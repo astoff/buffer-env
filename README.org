@@ -67,6 +67,8 @@ certain script names are treated specially.  These are:
   Guix package is loaded and exported to Emacs.  Make sure you have
   entered =guix shell= at least once before to install the
   dependencies, otherwise you may block Emacs for a long time.
+- =flake.nix= and =shell.nix=: These files are used by the Nix package
+  manager and are handled similarly to Guix.
 
 For instructions on how to extend this list, see the documentation of
 the variable =buffer-env-commands=.
