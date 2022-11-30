@@ -146,6 +146,7 @@ lean, you can just copy the function below and apply it as an
 =:around= advice to any affected commands.
 
 #+begin_src emacs-lisp
+  (eval-when-compile (require 'cl-lib))
   (defun buffer-env-inherit (fn &rest args)
     "Call FN with ARGS using the buffer-local process environment.
   Intended as an advice around commands that start a process after
