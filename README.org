@@ -139,7 +139,7 @@ include:
 - =async-shell-command= (=M-&=).
 
 Fortunately, the problem has an easy fix provided by the [[https://github.com/purcell/inheritenv][inheritenv]]
-package, which see.
+package.
 
 Alternatively, if you speak Elisp and want to keep your configuration
 lean, you can just copy the function below and apply it as an
