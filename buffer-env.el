@@ -137,6 +137,7 @@ Keys are file names, values are lists of form
   "Check if FILE is safe to execute, or ask for permission.
 Files marked as safe to execute are permanently stored in
 `buffer-env-safe-files' via the Custom mechanism."
+  (setq file (file-truename file))
   (let ((hash (with-temp-buffer
                 (insert-file-contents-literally file)
                 (secure-hash 'sha256 (current-buffer)))))
