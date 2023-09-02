@@ -90,7 +90,7 @@ to create an =.envrc= file with the following contents:
   source path-to-virtualenv/bin/activate
 #+end_src
 
-You can also call =buffer-env-activate= interactively and select the
+You can also call =buffer-env-update= interactively and select the
 =activate= script directly.
 
 However, if you want to avoid writing =.envrc= scripts and you create
