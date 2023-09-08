@@ -68,8 +68,8 @@
     ("guix.scm" . "guix shell -D -f \"$0\" -- env -0")
     ("flake.nix" . "nix develop -c env -0")
     ("shell.nix" . "nix-shell \"$0\" --run \"env -0\"")
-    ("*.ps1" . "& { param($script) . $script > $null; Get-ChildItem env: |\
-                % {\"$($_.Name)=$($_.Value)`0\"} | Write-Host -NoNewLine }")
+    ("*.ps1" . "powershell -c '& { param($script) . $script > $null; Get-ChildItem env: |\
+                % {\"$($_.Name)=$($_.Value)`0\"} | Write-Host -NoNewLine } '")
     ("*" . ">&2 . \"$0\" && env -0"))
   "Alist of commands used to produce environment variables.
 For each entry, the car is a glob pattern and the cdr is a shell
