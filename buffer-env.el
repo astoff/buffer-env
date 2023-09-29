@@ -212,8 +212,11 @@ When called interactively, ask for a FILE."
                                        :sentinel #'ignore
                                        :buffer (current-buffer)
                                        :stderr errbuf)))
+                           ;; Give subprocess a chance to finish
+                           ;; before setting up a progress reporter
                            (sit-for 0)
-                           (when (process-live-p proc)
+                           (if (not (process-live-p proc))
+                               (accept-process-output proc)
                              (let* ((msg (format-message "[buffer-env] Running `%s'..." file))
                                     (reporter (make-progress-reporter msg)))
                                (while (or (accept-process-output proc 1)
