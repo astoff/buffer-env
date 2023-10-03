@@ -161,6 +161,24 @@ Files marked as safe to execute are permanently stored in
          (list buffer-env-script-name)
        buffer-env-script-name))))
 
+(defun buffer-env--get-command (file)
+  "Return the appropriate shell command to interpret script FILE."
+  (or (seq-some (pcase-lambda (`(,patt . ,command))
+                  (when (string-match-p (wildcard-to-regexp patt)
+                                        (file-name-nondirectory file))
+                    command))
+                buffer-env-commands)
+      (user-error "[buffer-env] No entry of `buffer-env-commands' matches %s"
+                  file)))
+
+(defun buffer-env--filter-vars (vars)
+  "Filter out VARS listed in `buffer-env-ignored-variables'."
+  (seq-filter (lambda (var)
+                (not (seq-contains-p buffer-env-ignored-variables
+                                     var
+                                     'string-prefix-p)))
+              vars))
+
 ;;;###autoload
 (defun buffer-env-update (&optional file)
   "Update the process environment buffer locally.
@@ -184,67 +202,66 @@ When called interactively, ask for a FILE."
                      (buffer-env--locate-script)))
              ((buffer-env--authorize file))
              (modtime (file-attribute-modification-time (file-attributes file))))
-    (if-let ((cache (gethash file buffer-env--cache))
-	     ((time-equal-p (nth 0 cache) modtime)))
+    (if-let ((cached (gethash file buffer-env--cache))
+	     ((time-equal-p (nth 0 cached) modtime)))
         (progn
           (when buffer-env-verbose
             (message "[buffer-env] Environment of `%s' set from `%s' using cache"
                      (current-buffer) file))
-          (setq-local process-environment (nth 1 cache)
-                      exec-path (nth 2 cache)
+          (setq-local process-environment (nth 1 cached)
+                      exec-path (nth 2 cached)
                       buffer-env-active file))
-      (when-let ((command (seq-some (pcase-lambda (`(,patt . ,command))
-                                      (when (string-match-p (wildcard-to-regexp patt)
-                                                            (file-name-nondirectory file))
-                                        command))
-                                    buffer-env-commands))
-                 (errbuf (with-current-buffer (get-buffer-create " *buffer-env*")
-                           (erase-buffer)
-                           (current-buffer)))
-                 (vars (with-temp-buffer
-                         (let* ((default-directory (file-name-directory file))
-                                (message-log-max nil)
-                                (proc (make-process
-                                       :name "buffer-env"
-                                       :command (list shell-file-name
-                                                      shell-command-switch
-                                                      command file)
-                                       :sentinel #'ignore
-                                       :buffer (current-buffer)
-                                       :stderr errbuf)))
-                           ;; Give subprocess a chance to finish
-                           ;; before setting up a progress reporter
-                           (sit-for 0)
-                           (if (not (process-live-p proc))
-                               (accept-process-output proc)
-                             (let* ((msg (format-message "[buffer-env] Running `%s'..." file))
-                                    (reporter (make-progress-reporter msg)))
-                               (while (or (accept-process-output proc 1)
-                                          (process-live-p proc))
-                                 (progress-reporter-update reporter))
-                               (progress-reporter-done reporter)))
-                           (if (= (process-exit-status proc) 0)
-                               (split-string (buffer-substring (point-min) (point-max)) "\0" t)
-                             (buffer-env-reset)
-                             (lwarn 'buffer-env :warning "\
-Error running script `%s'.
-Script finished with exit status %s.  See buffer `%s' for details."
-                                    file (process-exit-status proc) errbuf)
-                             nil)))))
-        (setq-local process-environment
-                    (nconc (seq-remove (lambda (var)
-                                         (seq-contains-p buffer-env-ignored-variables
-                                                         var 'string-prefix-p))
-                                       vars)
-                           buffer-env-extra-variables))
-        (when-let ((path (getenv "PATH")))
-          (setq-local exec-path (nconc (split-string path path-separator)
-                                       (list exec-directory))))
-        (puthash file (list modtime process-environment exec-path) buffer-env--cache)
-        (when buffer-env-verbose
-          (message "[buffer-env] Environment of `%s' set from `%s'"
-                   (current-buffer) file))
-        (setq buffer-env-active file)))))
+      (let* ((command (buffer-env--get-command file))
+             (errbuf (with-current-buffer (get-buffer-create " *buffer-env*")
+                       (erase-buffer)
+                       (current-buffer)))
+             (result (with-temp-buffer
+                       (let* ((default-directory (file-name-directory file))
+                              (message-log-max nil)
+                              (proc (make-process
+                                     :name "buffer-env"
+                                     :command (list shell-file-name
+                                                    shell-command-switch
+                                                    command file)
+                                     :sentinel #'ignore
+                                     :buffer (current-buffer)
+                                     :stderr errbuf)))
+                         ;; Give subprocess a chance to finish
+                         ;; before setting up a progress reporter
+                         (sit-for 0)
+                         (if (not (process-live-p proc))
+                             (accept-process-output proc)
+                           (let* ((msg (format-message "[buffer-env] Running `%s'..." file))
+                                  (reporter (make-progress-reporter msg)))
+                             (while (or (accept-process-output proc 1)
+                                        (process-live-p proc))
+                               (progress-reporter-update reporter))
+                             (progress-reporter-done reporter)))
+                         (cons (process-exit-status proc)
+                               (thread-first
+                                 (buffer-substring (point-min) (point-max))
+                                 (split-string "\0" t)
+                                 (buffer-env--filter-vars)
+                                 (nconc buffer-env-extra-variables)))))))
+        (pcase result
+          (`(0 . ,vars)
+           (setq-local process-environment vars)
+           (when-let ((path (getenv "PATH")))
+             (setq-local exec-path (nconc (split-string path path-separator)
+                                          (list exec-directory))))
+           (puthash file (list modtime process-environment exec-path) buffer-env--cache)
+           (when buffer-env-verbose
+             (message "[buffer-env] Environment of `%s' set from `%s'"
+                      (current-buffer) file))
+           (setq buffer-env-active file))
+          (`(,status . ,_)
+           (buffer-env-reset)
+           (lwarn 'buffer-env :warning "\
+Error running script %s (exit status %s).
+See script output in %s for more information."
+                  (buttonize file #'find-file file)
+                  status
+                  (buttonize (buffer-name errbuf) #'pop-to-buffer errbuf))))))))
 
 ;;;###autoload
 (defun buffer-env-reset ()
