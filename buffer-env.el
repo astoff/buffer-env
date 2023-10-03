@@ -5,7 +5,7 @@
 ;; Author: Augusto Stoffel <arstoffel@gmail.com>
 ;; URL: https://github.com/astoff/buffer-env
 ;; Keywords: processes, tools
-;; Package-Requires: ((emacs "27.1") (compat "28.1"))
+;; Package-Requires: ((emacs "27.1") (compat "29.1"))
 ;; Version: 0.4
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -143,11 +143,24 @@ Files marked as safe to execute are permanently stored in
                 (insert-file-contents-literally file)
                 (secure-hash 'sha256 (current-buffer)))))
     (or (member (cons file hash) buffer-env-safe-files)
-        (when (y-or-n-p (format-message "Mark current version of `%s' as safe to execute? "
-                                        file))
-          (customize-save-variable 'buffer-env-safe-files
-                                   (push (cons file hash)
-                                         buffer-env-safe-files))))))
+        (pcase (car (read-multiple-choice
+                     (format-message "[buffer-env] Execute script `%s'?" file)
+                     '((?! "always")
+                       (?y "yes")
+                       (?n "no"))
+                     "\
+Please decide if you trust this script and would like to execute it.
+
+If you choose ‘yes’ or ‘no’, the decision holds in this Emacs
+session only and provided the file modification time is unchanged.
+
+If you choose `always', the decision persists for as long as the
+content of the file remains unchanged.  See ‘buffer-env-safe-files’
+for more details."))
+          (?! (customize-save-variable
+               'buffer-env-safe-files
+               (push (cons file hash) buffer-env-safe-files)))
+          (?y t)))))
 
 (defun buffer-env--locate-script ()
   "Locate a dominating file named `buffer-env-script-name'."
@@ -199,69 +212,73 @@ When called interactively, ask for a FILE."
                            nil file t))))
   (when-let ((file (if file
                        (expand-file-name file)
-                     (buffer-env--locate-script)))
-             ((buffer-env--authorize file))
-             (modtime (file-attribute-modification-time (file-attributes file))))
-    (if-let ((cached (gethash file buffer-env--cache))
-	     ((time-equal-p (nth 0 cached) modtime)))
-        (progn
+                     (buffer-env--locate-script))))
+    (let ((modtime (file-attribute-modification-time (file-attributes file)))
+          (cached (gethash file buffer-env--cache)))
+      (cond
+       ((time-equal-p (car cached) modtime)
+        (unless (eq 'ignore (cdr cached))
           (when buffer-env-verbose
             (message "[buffer-env] Environment of `%s' set from `%s' using cache"
                      (current-buffer) file))
           (setq-local process-environment (nth 1 cached)
                       exec-path (nth 2 cached)
-                      buffer-env-active file))
-      (let* ((command (buffer-env--get-command file))
-             (errbuf (with-current-buffer (get-buffer-create " *buffer-env*")
-                       (erase-buffer)
-                       (current-buffer)))
-             (result (with-temp-buffer
-                       (let* ((default-directory (file-name-directory file))
-                              (message-log-max nil)
-                              (proc (make-process
-                                     :name "buffer-env"
-                                     :command (list shell-file-name
-                                                    shell-command-switch
-                                                    command file)
-                                     :sentinel #'ignore
-                                     :buffer (current-buffer)
-                                     :stderr errbuf)))
-                         ;; Give subprocess a chance to finish
-                         ;; before setting up a progress reporter
-                         (sit-for 0)
-                         (if (not (process-live-p proc))
-                             (accept-process-output proc)
-                           (let* ((msg (format-message "[buffer-env] Running `%s'..." file))
-                                  (reporter (make-progress-reporter msg)))
-                             (while (or (accept-process-output proc 1)
-                                        (process-live-p proc))
-                               (progress-reporter-update reporter))
-                             (progress-reporter-done reporter)))
-                         (cons (process-exit-status proc)
-                               (thread-first
-                                 (buffer-substring (point-min) (point-max))
-                                 (split-string "\0" t)
-                                 (buffer-env--filter-vars)
-                                 (nconc buffer-env-extra-variables)))))))
-        (pcase result
-          (`(0 . ,vars)
-           (setq-local process-environment vars)
-           (when-let ((path (getenv "PATH")))
-             (setq-local exec-path (nconc (split-string path path-separator)
-                                          (list exec-directory))))
-           (puthash file (list modtime process-environment exec-path) buffer-env--cache)
-           (when buffer-env-verbose
-             (message "[buffer-env] Environment of `%s' set from `%s'"
-                      (current-buffer) file))
-           (setq buffer-env-active file))
-          (`(,status . ,_)
-           (buffer-env-reset)
-           (lwarn 'buffer-env :warning "\
+                      buffer-env-active file)))
+      ((buffer-env--authorize file)
+       (pcase (with-temp-buffer
+                (let* ((default-directory (file-name-directory file))
+                       (message-log-max nil)
+                       (errbuf (with-current-buffer (get-buffer-create " *buffer-env*")
+                                 (erase-buffer)
+                                 (current-buffer)))
+                       (proc (make-process
+                              :name "buffer-env"
+                              :command (list shell-file-name
+                                             shell-command-switch
+                                             (buffer-env--get-command file)
+                                             file)
+                              :sentinel #'ignore
+                              :buffer (current-buffer)
+                              :stderr errbuf)))
+                  ;; Give subprocess a chance to finish
+                  ;; before setting up a progress reporter
+                  (sit-for 0)
+                  (if (not (process-live-p proc))
+                      (accept-process-output proc)
+                    (let* ((msg (format-message "[buffer-env] Running `%s'..." file))
+                           (reporter (make-progress-reporter msg)))
+                      (while (or (accept-process-output proc 1)
+                                 (process-live-p proc))
+                        (progress-reporter-update reporter))
+                      (progress-reporter-done reporter)))
+                  (list (process-exit-status proc)
+                        errbuf
+                        (thread-first
+                          (buffer-substring (point-min) (point-max))
+                          (split-string "\0" t)
+                          (buffer-env--filter-vars)
+                          (nconc buffer-env-extra-variables)))))
+         (`(0 ,_ ,vars)
+          (setq-local process-environment vars)
+          (when-let ((path (getenv "PATH")))
+            (setq-local exec-path (nconc (split-string path path-separator)
+                                         (list exec-directory))))
+          (puthash file (list modtime process-environment exec-path) buffer-env--cache)
+          (when buffer-env-verbose
+            (message "[buffer-env] Environment of `%s' set from `%s'"
+                     (current-buffer) file))
+          (setq buffer-env-active file))
+         (`(,status ,errbuf ,_)
+          (buffer-env-reset)
+          (puthash file `(,modtime . ignore) buffer-env--cache)
+          (lwarn 'buffer-env :warning "\
 Error running script %s (exit status %s).
 See script output in %s for more information."
-                  (buttonize file #'find-file file)
-                  status
-                  (buttonize (buffer-name errbuf) #'pop-to-buffer errbuf))))))))
+                 (buttonize file #'find-file file)
+                 status
+                 (buttonize (buffer-name errbuf) #'pop-to-buffer errbuf)))))
+      (t
+       (puthash file `(,modtime . ignore) buffer-env--cache))))))
 
 ;;;###autoload
 (defun buffer-env-reset ()
