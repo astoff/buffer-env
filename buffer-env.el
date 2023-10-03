@@ -52,25 +52,48 @@
 
 (require 'compat)
 (require 'seq)
-(eval-when-compile (require 'subr-x))
+(eval-when-compile
+  (require 'rx)
+  (require 'subr-x))
 
 (defgroup buffer-env nil
   "Buffer-local process environments."
   :group 'processes)
 
 (defcustom buffer-env-script-name ".envrc"
-  "File name of the scripts to produce environment variables, or a list of such."
+  "File name of the script producing environment variables, or a list of such."
   :type '(choice (repeat string) string))
 
-(defcustom buffer-env-commands
-  '((".env" . "set -a && >&2 . \"$0\" && env -0")
-    ("manifest.scm" . "guix shell -m \"$0\" -- env -0")
-    ("guix.scm" . "guix shell -D -f \"$0\" -- env -0")
-    ("flake.nix" . "nix develop -c env -0")
-    ("shell.nix" . "nix-shell \"$0\" --run \"env -0\"")
-    ("*.ps1" . "powershell -c '& { param($script) . $script > $null; Get-ChildItem env: |\
-                % {\"$($_.Name)=$($_.Value)`0\"} | Write-Host -NoNewLine } '")
-    ("*" . ">&2 . \"$0\" && env -0"))
+(defcustom buffer-env-command-alist
+  `((,(rx "/.env" eos)
+     . "set -a && >&2 . \"$0\" && env -0")
+    (,(rx "/manifest.scm" eos)
+     . "guix shell -m \"$0\" -- env -0")
+    (,(rx "/guix.scm" eos)
+     . "guix shell -D -f \"$0\" -- env -0")
+    (,(rx "/flake.nix" eos)
+     . "nix develop -c env -0")
+    (,(rx "/shell.nix" eos)
+     . "nix-shell \"$0\" --run \"env -0\"")
+    (,(rx ".ps1" eos)
+     . "powershell -c '& { param($script) . $script > $null; Get-ChildItem env: |\
+        % {\"$($_.Name)=$($_.Value)`0\"} | Write-Host -NoNewLine } '")
+    (,(rx any)
+     . ">&2 . \"$0\" && env -0"))
+  "Alist of commands used to produce environment variables.
+For each entry, the car is a regular expression and the cdr is a
+shell command.  The command specifies how to execute a script and
+collect the environment variables it defines.
+
+More specifically, the command corresponding to the script file
+name is executed in a shell, in the directory of the script, with
+its absolute file name as argument.  The command should print a
+null-separated list of environment variables, and nothing else,
+to standard output."
+  :type '(alist :key-type (regexp :tag "File name pattern")
+                :value-type (string :tag "Shell command")))
+
+(defcustom buffer-env-commands nil
   "Alist of commands used to produce environment variables.
 For each entry, the car is a glob pattern and the cdr is a shell
 command.  The command specifies how to execute a script and
@@ -83,6 +106,7 @@ null-separated list of environment variables, and nothing else,
 to standard output."
   :type '(alist :key-type (string :tag "Glob pattern")
                 :value-type (string :tag "Shell command")))
+(make-obsolete-variable 'buffer-env-commands 'buffer-env-command-alist "0.5")
 
 (defcustom buffer-env-safe-files nil
   "List of scripts marked as safe to execute.
@@ -176,12 +200,20 @@ for more details."))
 
 (defun buffer-env--get-command (file)
   "Return the appropriate shell command to interpret script FILE."
-  (or (seq-some (pcase-lambda (`(,patt . ,command))
-                  (when (string-match-p (wildcard-to-regexp patt)
-                                        (file-name-nondirectory file))
+  (or (when-let
+          ((c (seq-some (pcase-lambda (`(,patt . ,command))
+                          (when (string-match-p (wildcard-to-regexp patt)
+                                                (file-name-nondirectory file))
+                            command))
+                        buffer-env-commands)))
+        (prog1 c
+          (lwarn 'buffer-env :warning "\
+`buffer-env-commands' is obsolete, use 'buffer-env-command-alist' instead.")))
+      (seq-some (pcase-lambda (`(,patt . ,command))
+                  (when (string-match-p patt file)
                     command))
-                buffer-env-commands)
-      (user-error "[buffer-env] No entry of `buffer-env-commands' matches %s"
+                buffer-env-command-alist)
+      (user-error "[buffer-env] No entry of `buffer-env-command-alist' matches %s"
                   file)))
 
 (defun buffer-env--filter-vars (vars)
@@ -195,9 +227,9 @@ for more details."))
 ;;;###autoload
 (defun buffer-env-update (&optional file)
   "Update the process environment buffer locally.
-FILE is executed in the way prescribed by `buffer-env-commands'
-and the buffer-local values of `process-environment' and
-`exec-path' are set accordingly.
+FILE is executed in the way prescribed by
+`buffer-env-command-alist' and the buffer-local values of
+`process-environment' and `exec-path' are set accordingly.
 
 If FILE omitted, a file with base name `buffer-env-script-name'
 is looked up in the current directory and its parents; nothing

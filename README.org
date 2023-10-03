@@ -12,7 +12,6 @@ parallel with no undue interference and switch seamlessly between
 them.
 
 ** Basic setup
-
 *** On the project side
 Your project settings should go into a shell script named =.envrc=
 which exports a suitable =PATH=, as well as any other desired
@@ -25,8 +24,8 @@ direnv so it is not possible to use direnv-specific features in the
 =.envrc= scripts --- at least not directly.
 
 Alternatively, it is possible to configure buffer-env to directly
-support other environment setup methods, such as Python virtualenvs or
-=.env= files.  See below for details.
+support other environment setup methods, such as Python virtualenvs,
+=.env= files or certain build tools.  See below for details.
 
 *** On the Emacs side
 The usual way to activate this package in Emacs is by including the
@@ -69,14 +68,14 @@ certain script names are treated specially.  These are:
   dependencies, otherwise you may block Emacs for a long time.
 - =flake.nix= and =shell.nix=: These files are used by the Nix package
   manager and are handled similarly to Guix.
+- =*.ps1=: Similar to a regular shell script, but interpreted by
+  PowerShell.
 
 For instructions on how to extend this list, see the documentation of
-the variable =buffer-env-commands=.
+the variable =buffer-env-command-alist=.
 
 ** Integration with other environment management mechanisms
-
 *** pyproject.toml
-
 If you are using a fully featured Python project manager such as
 [[https://python-poetry.org/][Poetry]], [[https://hatch.pypa.io/][Hatch]] or [[https://pdm.fming.dev][PDM]], buffer-env can be configured to infer the
 project environment directly from the =pyproject.toml= file.  See [[https://github.com/astoff/buffer-env/issues/13][this
@@ -121,7 +120,7 @@ following configuration:
 
 #+begin_src emacs-lisp
   (with-eval-after-load 'buffer-env
-    (add-to-list 'buffer-env-commands '(".envrc" . "direnv exec . env -0")))
+    (add-to-list 'buffer-env-command-alist '("/\\.envrc\\'" . "direnv exec . env -0")))
 #+end_src
 
 If you need tighter integration with direnv, you may want to check out
@@ -155,11 +154,6 @@ lean, you can just copy the function below and apply it as an
               ((default-value 'exec-path) exec-path))
       (apply fn args)))
 #+end_src
-
-*** Non-Unix-like systems
-Currently, this package assumes your system shell is POSIX.  For other
-types of operating system, I would need to know what the appropriate
-value of =buffer-env-commands= is.  Drop me a line if you can help.
 
 ** Related packages
 This package is essentially a knockoff of the [[https://github.com/purcell/envrc][envrc]] package by Steve
