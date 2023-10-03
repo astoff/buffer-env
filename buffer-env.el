@@ -58,7 +58,8 @@
 
 (defgroup buffer-env nil
   "Buffer-local process environments."
-  :group 'processes)
+  :group 'processes
+  :link '(url-link "https://github.com/astoff/buffer-env"))
 
 (defcustom buffer-env-script-name ".envrc"
   "File name of the script producing environment variables, or a list of such."
