@@ -32,13 +32,14 @@ The usual way to activate this package in Emacs is by including the
 following in your init file:
 
 #+begin_src emacs-lisp
-  (add-hook 'hack-local-variables-hook 'buffer-env-update)
+  (add-hook 'hack-local-variables-hook #'buffer-env-update)
+  (add-hook 'comint-mode-hook #'buffer-env-update)
 #+end_src
 
 In this way, any buffer potentially affected by [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Directory-Variables.html][directory-local
-variables]] will also be affected by buffer-env.  It is also possible to
-add =buffer-env-update= only to specific major-mode hooks, or call it
-interactively.
+variables]], as well as Comint buffers, will also be affected by
+buffer-env.  It is also possible to add =buffer-env-update= only to
+specific major-mode hooks, or call it interactively.
 
 ** How this package works
 When called interactively, =buffer-env-update= asks for a script file
@@ -133,8 +134,7 @@ few commands; specifically, those which start an external process
 after switching to a different buffer or remote directory.  Examples
 include:
 
-- =shell=, =project-shell= (=C-x p s=) and other REPLs;
-- =compile= and =project-compile= (=C-x p c=) in Emacs 27 and older;
+- =compile= and =project-compile= (=C-x p c=) in Emacs 27 and older,
 - =async-shell-command= (=M-&=).
 
 Fortunately, the problem has an easy fix provided by the [[https://github.com/purcell/inheritenv][inheritenv]]
