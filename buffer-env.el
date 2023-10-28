@@ -76,6 +76,13 @@
      . "nix develop -c env -0")
     (,(rx "/shell.nix" eos)
      . "nix-shell \"$0\" --run \"env -0\"")
+    (,(rx "/pyproject.toml" eos)
+     . "\
+backend=$(sed -nr 's/^build-backend\s*=\s*\"([a-z]+).*/\\1/p' \"$0\")
+case $backend in
+  poetry|pdm|hatchling) ${backend%ling} run env -0;;
+  *) echo >&2 \"Unsupported build backend '$backend'.\" && exit 1;;
+esac")
     (,(rx ".ps1" eos)
      . "powershell -c '& { param($script) . $script > $null; Get-ChildItem env: |\
         % {\"$($_.Name)=$($_.Value)`0\"} | Write-Host -NoNewLine } '")
