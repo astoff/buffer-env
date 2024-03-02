@@ -69,7 +69,7 @@ certain script names are treated specially.  These are:
   dependencies, otherwise you may block Emacs for a long time.
 - =flake.nix= and =shell.nix=: These files are used by the Nix package
   manager and are handled similarly to Guix.
-- =pyproject.toml= If you are using [[https://python-poetry.org/][Poetry]], [[https://hatch.pypa.io/][Hatch]] or [[https://pdm.fming.dev][PDM]], buffer-env
+- =pyproject.toml=: If you are using [[https://python-poetry.org/][Poetry]], [[https://hatch.pypa.io/][Hatch]] or [[https://pdm.fming.dev][PDM]], buffer-env
   can infer the project environment from them.
 - =*.ps1=: Similar to a regular shell script, but interpreted by
   PowerShell.
