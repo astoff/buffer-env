@@ -67,27 +67,27 @@
 
 (defcustom buffer-env-command-alist
   `((,(rx "/.env" eos)
-     . "set -a && >&2 . \"$0\" && env -0")
+     . "set -a && >&2 . \"$1\" && env -0")
     (,(rx "/manifest.scm" eos)
-     . "guix shell -m \"$0\" -- env -0")
+     . "guix shell -m \"$1\" -- env -0")
     (,(rx "/guix.scm" eos)
-     . "guix shell -D -f \"$0\" -- env -0")
+     . "guix shell -D -f \"$1\" -- env -0")
     (,(rx "/flake.nix" eos)
      . "nix develop -c env -0")
     (,(rx "/shell.nix" eos)
-     . "nix-shell \"$0\" --run \"env -0\"")
+     . "nix-shell \"$1\" --run \"env -0\"")
     (,(rx "/pyproject.toml" eos)
      . "\
-backend=$(sed -nr 's/^build-backend\s*=\s*\"([a-z]+).*/\\1/p' \"$0\")
+backend=$(sed -nr 's/^build-backend\s*=\s*\"([a-z]+).*/\\1/p' \"$1\")
 case $backend in
   poetry|pdm|hatchling) ${backend%ling} run env -0;;
   *) echo >&2 \"Unsupported build backend '$backend'.\" && exit 1;;
 esac")
     (,(rx ".ps1" eos)
-     . "powershell -c '& { param($script) . $script > $null; Get-ChildItem env: |\
+     . "powershell -c '& { param($ignore, $script) . $script > $null; Get-ChildItem env: |\
         % {\"$($_.Name)=$($_.Value)`0\"} | Write-Host -NoNewLine } '")
     (,(rx any)
-     . ">&2 . \"$0\" && env -0"))
+     . ">&2 . \"$1\" && env -0"))
   "Alist of commands used to produce environment variables.
 For each entry, the car is a regular expression and the cdr is a
 shell command.  The command specifies how to execute a script and
@@ -276,6 +276,7 @@ When called interactively, ask for a FILE."
                               :command (list shell-file-name
                                              shell-command-switch
                                              (buffer-env--get-command file)
+                                             shell-file-name ;Argument $0
                                              file)
                               :sentinel #'ignore
                               :buffer (current-buffer)
