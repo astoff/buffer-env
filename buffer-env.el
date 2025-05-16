@@ -66,7 +66,7 @@
   :type '(choice (repeat string) string))
 
 (defcustom buffer-env-command-alist
-  `((,(rx "/.env" eos)
+  `((,(rx "/" (or ".env" "environment-variables") eos)
      . "set -a && >&2 . \"$1\" && env -0")
     (,(rx "/manifest.scm" eos)
      . "guix shell -m \"$1\" -- env -0")
